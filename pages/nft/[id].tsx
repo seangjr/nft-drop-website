@@ -1,20 +1,51 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useAddress, useDisconnect, useMetamask } from '@thirdweb-dev/react'
+import {
+  useAddress,
+  useDisconnect,
+  useMetamask,
+  useNFTDrop,
+} from '@thirdweb-dev/react'
 import { GetServerSideProps } from 'next'
 import { sanityClient, urlFor } from '../../sanity'
 import { Collection } from '../../typings'
+import { BigNumber } from 'ethers'
 
 interface Props {
   collection: Collection
 }
 
 const NFTDropPage = ({ collection }: Props) => {
+  const [claimedSupply, setClaimedSupply] = useState<number>(0)
+  const [totalSupply, setTotalSupply] = useState<BigNumber>()
+  const [loading, setLoading] = useState<boolean>(true)
+
+  const nftDrop = useNFTDrop(collection.address)
+
   // Auth
   const connectWithMetamask = useMetamask()
   const address = useAddress()
   const disconnect = useDisconnect()
   // ---
+
+  useEffect(() => {
+    if (!nftDrop) return
+
+    const fetchNFTDropData = async () => {
+      setLoading(true)
+
+      const claimed = await nftDrop.getAllClaimed()
+      const total = await nftDrop.totalSupply()
+
+      setClaimedSupply(claimed.length)
+      setTotalSupply(total)
+
+      setLoading(false)
+    }
+
+    fetchNFTDropData()
+  }, [nftDrop])
+
   return (
     <div className="flex h-screen flex-col lg:grid lg:grid-cols-10">
       {/* left */}
@@ -39,8 +70,8 @@ const NFTDropPage = ({ collection }: Props) => {
       {/* right */}
       <div className="flex flex-1 flex-col p-12 lg:col-span-6">
         {/* header */}
-        <Link href="/">
-          <header className="flex items-center justify-between">
+        <header className="flex items-center justify-between">
+          <Link href="/">
             <h1 className="w-52 cursor-pointer text-xl font-extralight sm:w-80">
               The{' '}
               <span className="font-extrabold underline decoration-pink-600/50">
@@ -48,15 +79,14 @@ const NFTDropPage = ({ collection }: Props) => {
               </span>{' '}
               NFT Market Place
             </h1>
-
-            <button
-              onClick={() => (address ? disconnect() : connectWithMetamask())}
-              className="rounded-full bg-blue-400 px-4 py-2 text-xs font-bold text-white lg:px-5 lg:py-3 lg:text-base"
-            >
-              {address ? 'Sign Out' : 'Sign In'}
-            </button>
-          </header>
-        </Link>
+          </Link>
+          <button
+            onClick={() => (address ? disconnect() : connectWithMetamask())}
+            className="rounded-full bg-blue-400 px-4 py-2 text-xs font-bold text-white lg:px-5 lg:py-3 lg:text-base"
+          >
+            {address ? 'Sign Out' : 'Sign In'}
+          </button>
+        </header>
 
         <hr className="my-2 border" />
         {address && (
@@ -77,7 +107,15 @@ const NFTDropPage = ({ collection }: Props) => {
             {collection.title}
           </h1>
 
-          <p className="pt-2 text-xl text-green-500">0 / 21 NFT's claimed</p>
+          {loading ? (
+            <p className="pt-2 text-xl text-green-500">
+              Loading supply count...
+            </p>
+          ) : (
+            <p className="pt-2 text-xl text-green-500">
+              {claimedSupply} / {totalSupply?.toString()} NFT's claimed
+            </p>
+          )}
         </div>
         {/* mint button */}
         <button className="h-16 w-full rounded-full bg-blue-500 font-bold text-white">
